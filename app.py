@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
 # Load dataset
@@ -22,16 +22,16 @@ novels['title_encoded'] = le_title.fit_transform(novels['title'])
 novels['author_encoded'] = le_author.fit_transform(novels['authors'])
 novels['status_encoded'] = le_status.fit_transform(novels['status'])
 
-# Model untuk prediksi berdasarkan scored
+# Model untuk prediksi scored (regresi)
 X_scored = novels[['genre_encoded', 'author_encoded', 'status_encoded']]
 y_scored = novels['scored']
-model_scored = RandomForestClassifier()
+model_scored = RandomForestRegressor(random_state=42)
 model_scored.fit(X_scored, y_scored)
 
-# Model untuk prediksi berdasarkan genre
+# Model untuk prediksi genre (klasifikasi)
 X_genre = novels[['scored', 'author_encoded', 'status_encoded']]
 y_genre = novels['genre_encoded']
-model_genre = RandomForestClassifier()
+model_genre = RandomForestClassifier(random_state=42)
 model_genre.fit(X_genre, y_genre)
 
 # Inisialisasi halaman
@@ -71,16 +71,22 @@ elif page == "Rekomendasi Berdasarkan Scored":
     })
 
     y_pred = model_scored.predict(X_input)[0]
-    result = novels[novels['scored'] == y_pred].sort_values(by='popularity', ascending=False).head(10)
 
-    st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\":")
+    # Cari 10 novel dengan scored terdekat ke hasil prediksi
+    novels['score_diff'] = (novels['scored'] - y_pred).abs()
+    result = novels.sort_values(by='score_diff').head(10)
+
+    st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
     st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
 
     st.session_state.history.append({
-        "title": selected_title, 
-        "type": "Scored", 
+        "title": selected_title,
+        "type": "Scored",
         "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
     })
+
+    # Hapus kolom sementara agar tidak mengganggu operasi selanjutnya
+    novels.drop(columns=['score_diff'], inplace=True)
 
 # PAGE 3 - GENRE
 elif page == "Rekomendasi Berdasarkan Genre":
@@ -102,7 +108,7 @@ elif page == "Rekomendasi Berdasarkan Genre":
     st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
 
     st.session_state.history.append({
-        "title": selected_title, 
-        "type": "Genre", 
+        "title": selected_title,
+        "type": "Genre",
         "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
     })
