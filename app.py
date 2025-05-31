@@ -34,9 +34,35 @@ y_genre = novels['genre_encoded']
 model_genre = RandomForestClassifier(random_state=42)
 model_genre.fit(X_genre, y_genre)
 
-# Inisialisasi halaman
-st.set_page_config(page_title="Novel Recommendation App", layout="wide")
-page = st.sidebar.selectbox("Navigasi", ["Home", "Rekomendasi Berdasarkan Scored", "Rekomendasi Berdasarkan Genre"])
+# Streamlit page config with favicon (book emoji)
+st.set_page_config(page_title="📚 Novel Recommendation App", page_icon="📚", layout="wide")
+
+# CSS styling for better look
+st.markdown(
+    """
+    <style>
+    .title {
+        font-size: 40px;
+        font-weight: bold;
+        color: #4B8BBE;
+        margin-bottom: 0;
+    }
+    .subtitle {
+        font-size: 20px;
+        color: #306998;
+        margin-top: 0;
+        margin-bottom: 20px;
+    }
+    .stSidebar .css-1d391kg {
+        background-color: #f0f8ff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Sidebar with emoji icon
+page = st.sidebar.selectbox("📚 Navigasi", ["Home", "Rekomendasi Berdasarkan Scored", "Rekomendasi Berdasarkan Genre"])
 
 # Riwayat rekomendasi
 if "history" not in st.session_state:
@@ -44,96 +70,76 @@ if "history" not in st.session_state:
 
 # HOME PAGE
 if page == "Home":
-    st.title("📚 Beranda")
+    st.markdown('<h1 class="title">📚 Beranda Novel</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">10 Novel Paling Populer</p>', unsafe_allow_html=True)
 
-    st.subheader("10 Novel Paling Populer")
     top_popular = novels.sort_values(by="popularty", ascending=False).head(10)
     st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularty']])
 
-    st.subheader("Riwayat Rekomendasi")
+    st.markdown('<p class="subtitle">Riwayat Rekomendasi</p>', unsafe_allow_html=True)
     if st.session_state.history:
         for entry in st.session_state.history:
-            st.markdown(f"**{entry['title']}** - {entry['type']}:")
+            st.markdown(f"### 📖 {entry['title']} - {entry['type']}:")
             st.dataframe(entry['results'])
     else:
         st.write("Belum ada riwayat rekomendasi.")
 
 # PAGE 2 - SCORED
 elif page == "Rekomendasi Berdasarkan Scored":
-    st.title("⭐ Rekomendasi Berdasarkan Scored")
-
-    selected_title = st.text_input("Ketik judul novel")
-
-    if selected_title:
-        matched_rows = novels[novels['title'].str.lower() == selected_title.lower()]
-        if not matched_rows.empty:
-            selected_row = matched_rows.iloc[0]
-
-            X_input = pd.DataFrame({
-                'genre_encoded': [selected_row['genre_encoded']],
-                'author_encoded': [selected_row['author_encoded']],
-                'status_encoded': [selected_row['status_encoded']]
-            })
-
-            y_pred = model_scored.predict(X_input)[0]
-
-            novels['score_diff'] = (novels['scored'] - y_pred).abs()
-            result = novels.sort_values(by='score_diff').head(10)
-
-            st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
-            st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
-
-            st.session_state.history.append({
-                "title": selected_title,
-                "type": "Scored",
-                "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
-            })
-
-            novels.drop(columns=['score_diff'], inplace=True)
-        else:
-            st.warning("Judul novel tidak ditemukan. Silakan ketik ulang dengan benar.")
-
-# PAGE 3 - GENRE
-# PAGE 3 - GENRE
-elif page == "Rekomendasi Berdasarkan Genre":
-    st.title("🎯 Rekomendasi Berdasarkan Genre")
-
-    # Ubah dari text_input ke selectbox untuk scrolling dan pilih judul novel
-    selected_title = st.selectbox("Pilih judul novel (genre)", novels['title'].unique(), key='genre_select')
+    st.markdown('<h1 class="title">⭐ Rekomendasi Berdasarkan Scored</h1>', unsafe_allow_html=True)
+    selected_title = st.selectbox("Pilih judul novel", novels['title'].unique())
 
     selected_row = novels[novels['title'] == selected_title].iloc[0]
-
     X_input = pd.DataFrame({
-        'scored': [selected_row['scored']],
+        'genre_encoded': [selected_row['genre_encoded']],
         'author_encoded': [selected_row['author_encoded']],
         'status_encoded': [selected_row['status_encoded']]
     })
 
-    y_pred = model_genre.predict(X_input)[0]
-    genre_name = le_genre.inverse_transform([y_pred])[0]
-    result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
+    y_pred = model_scored.predict(X_input)[0]
 
-    st.write(f"Rekomendasi novel berdasarkan genre dari \"{selected_title}\" (Genre: {genre_name}):")
+    novels['score_diff'] = (novels['scored'] - y_pred).abs()
+    result = novels.sort_values(by='score_diff').head(10)
+
+    st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
     st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
 
     st.session_state.history.append({
         "title": selected_title,
-        "type": "Genre",
+        "type": "Scored",
         "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
     })
 
+    novels.drop(columns=['score_diff'], inplace=True)
+
+# PAGE 3 - GENRE (input manual judul novel)
+elif page == "Rekomendasi Berdasarkan Genre":
+    st.markdown('<h1 class="title">🎯 Rekomendasi Berdasarkan Genre</h1>', unsafe_allow_html=True)
+
+    input_title = st.text_input("Masukkan judul novel:")
+
+    if input_title:
+        if input_title in novels['title'].values:
+            selected_row = novels[novels['title'] == input_title].iloc[0]
+
+            X_input = pd.DataFrame({
+                'scored': [selected_row['scored']],
+                'author_encoded': [selected_row['author_encoded']],
+                'status_encoded': [selected_row['status_encoded']]
+            })
 
             y_pred = model_genre.predict(X_input)[0]
             genre_name = le_genre.inverse_transform([y_pred])[0]
+
             result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
 
-            st.write(f"Rekomendasi novel berdasarkan genre dari \"{selected_title}\" (Genre: {genre_name}):")
+            st.write(f"Rekomendasi novel berdasarkan genre dari \"{input_title}\" (Genre: {genre_name}):")
             st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
 
             st.session_state.history.append({
-                "title": selected_title,
+                "title": input_title,
                 "type": "Genre",
                 "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
             })
         else:
-            st.warning("Judul novel tidak ditemukan. Silakan ketik ulang dengan benar.")
+            st.warning("Judul novel tidak ditemukan di dataset. Silakan coba lagi.")
