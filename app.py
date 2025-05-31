@@ -47,8 +47,8 @@ if page == "Home":
     st.title("📚 Beranda")
 
     st.subheader("10 Novel Paling Populer")
-    top_popular = novels.sort_values(by="popularty", ascending=False).head(10)
-    st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularty']])
+    top_popular = novels.sort_values(by="popularity", ascending=False).head(10)
+    st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularity']])
 
     st.subheader("Riwayat Rekomendasi")
     if st.session_state.history:
@@ -61,54 +61,69 @@ if page == "Home":
 # PAGE 2 - SCORED
 elif page == "Rekomendasi Berdasarkan Scored":
     st.title("⭐ Rekomendasi Berdasarkan Scored")
-    selected_title = st.selectbox("Pilih judul novel", novels['title'].unique())
 
-    selected_row = novels[novels['title'] == selected_title].iloc[0]
-    X_input = pd.DataFrame({
-        'genre_encoded': [selected_row['genre_encoded']],
-        'author_encoded': [selected_row['author_encoded']],
-        'status_encoded': [selected_row['status_encoded']]
-    })
+    selected_title = st.text_input("Ketik judul novel")
 
-    y_pred = model_scored.predict(X_input)[0]
+    if selected_title:
+        # Cari baris novel berdasarkan judul (case insensitive)
+        matched_rows = novels[novels['title'].str.lower() == selected_title.lower()]
+        if not matched_rows.empty:
+            selected_row = matched_rows.iloc[0]
 
-    # Cari 10 novel dengan scored terdekat ke hasil prediksi
-    novels['score_diff'] = (novels['scored'] - y_pred).abs()
-    result = novels.sort_values(by='score_diff').head(10)
+            X_input = pd.DataFrame({
+                'genre_encoded': [selected_row['genre_encoded']],
+                'author_encoded': [selected_row['author_encoded']],
+                'status_encoded': [selected_row['status_encoded']]
+            })
 
-    st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
+            y_pred = model_scored.predict(X_input)[0]
 
-    st.session_state.history.append({
-        "title": selected_title,
-        "type": "Scored",
-        "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
-    })
+            # Cari 10 novel dengan scored terdekat ke hasil prediksi
+            novels['score_diff'] = (novels['scored'] - y_pred).abs()
+            result = novels.sort_values(by='score_diff').head(10)
 
-    # Hapus kolom sementara agar tidak mengganggu operasi selanjutnya
-    novels.drop(columns=['score_diff'], inplace=True)
+            st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
+            st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
+
+            st.session_state.history.append({
+                "title": selected_title,
+                "type": "Scored",
+                "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
+            })
+
+            # Hapus kolom sementara
+            novels.drop(columns=['score_diff'], inplace=True)
+        else:
+            st.warning("Judul novel tidak ditemukan. Silakan ketik ulang dengan benar.")
 
 # PAGE 3 - GENRE
 elif page == "Rekomendasi Berdasarkan Genre":
     st.title("🎯 Rekomendasi Berdasarkan Genre")
-    selected_title = st.selectbox("Pilih judul novel", novels['title'].unique(), key='genre')
 
-    selected_row = novels[novels['title'] == selected_title].iloc[0]
-    X_input = pd.DataFrame({
-        'scored': [selected_row['scored']],
-        'author_encoded': [selected_row['author_encoded']],
-        'status_encoded': [selected_row['status_encoded']]
-    })
+    selected_title = st.text_input("Ketik judul novel (genre)", key='genre_input')
 
-    y_pred = model_genre.predict(X_input)[0]
-    genre_name = le_genre.inverse_transform([y_pred])[0]
-    result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
+    if selected_title:
+        matched_rows = novels[novels['title'].str.lower() == selected_title.lower()]
+        if not matched_rows.empty:
+            selected_row = matched_rows.iloc[0]
 
-    st.write(f"Rekomendasi novel berdasarkan genre dari \"{selected_title}\" (Genre: {genre_name}):")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
+            X_input = pd.DataFrame({
+                'scored': [selected_row['scored']],
+                'author_encoded': [selected_row['author_encoded']],
+                'status_encoded': [selected_row['status_encoded']]
+            })
 
-    st.session_state.history.append({
-        "title": selected_title,
-        "type": "Genre",
-        "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
-    })
+            y_pred = model_genre.predict(X_input)[0]
+            genre_name = le_genre.inverse_transform([y_pred])[0]
+            result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
+
+            st.write(f"Rekomendasi novel berdasarkan genre dari \"{selected_title}\" (Genre: {genre_name}):")
+            st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
+
+            st.session_state.history.append({
+                "title": selected_title,
+                "type": "Genre",
+                "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
+            })
+        else:
+            st.warning("Judul novel tidak ditemukan. Silakan ketik ulang dengan benar.")
