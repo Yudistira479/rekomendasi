@@ -3,6 +3,29 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
+# Fungsi untuk set background image
+def set_bg_image():
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80");
+            background-attachment: fixed;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        /* Tambahkan sedikit transparansi ke panel konten agar teks jelas */
+        .css-18e3th9 {{
+            background-color: rgba(255, 255, 255, 0.85) !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+set_bg_image()
+
 # Load dataset
 @st.cache_data
 def load_data():
@@ -34,35 +57,9 @@ y_genre = novels['genre_encoded']
 model_genre = RandomForestClassifier(random_state=42)
 model_genre.fit(X_genre, y_genre)
 
-# Streamlit page config with favicon (book emoji)
-st.set_page_config(page_title="📚 Novel Recommendation App", page_icon="📚", layout="wide")
-
-# CSS styling for better look
-st.markdown(
-    """
-    <style>
-    .title {
-        font-size: 40px;
-        font-weight: bold;
-        color: #4B8BBE;
-        margin-bottom: 0;
-    }
-    .subtitle {
-        font-size: 20px;
-        color: #306998;
-        margin-top: 0;
-        margin-bottom: 20px;
-    }
-    .stSidebar .css-1d391kg {
-        background-color: #f0f8ff;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Sidebar with emoji icon
-page = st.sidebar.selectbox("📚 Navigasi", ["Home", "Rekomendasi Berdasarkan Scored", "Rekomendasi Berdasarkan Genre"])
+# Inisialisasi halaman
+st.set_page_config(page_title="Novel Recommendation App", layout="wide")
+page = st.sidebar.selectbox("Navigasi", ["Home", "Rekomendasi Berdasarkan Scored", "Rekomendasi Berdasarkan Genre"])
 
 # Riwayat rekomendasi
 if "history" not in st.session_state:
@@ -70,72 +67,89 @@ if "history" not in st.session_state:
 
 # HOME PAGE
 if page == "Home":
-    st.markdown('<h1 class="title">📚 Beranda Novel</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">10 Novel Paling Populer</p>', unsafe_allow_html=True)
+    st.title("📚 Beranda")
 
+    st.subheader("10 Novel Paling Populer")
     top_popular = novels.sort_values(by="popularty", ascending=False).head(10)
     st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularty']])
 
-    st.markdown('<p class="subtitle">Riwayat Rekomendasi</p>', unsafe_allow_html=True)
+    st.subheader("Riwayat Rekomendasi")
     if st.session_state.history:
         for entry in st.session_state.history:
-            st.markdown(f"### 📖 {entry['title']} - {entry['type']}:")
+            st.markdown(f"**{entry['title']}** - {entry['type']}:")
             st.dataframe(entry['results'])
     else:
         st.write("Belum ada riwayat rekomendasi.")
 
-# PAGE 2 - SCORED (scrollable selectbox)
+# PAGE 2 - SCORED
 elif page == "Rekomendasi Berdasarkan Scored":
-    st.markdown('<h1 class="title">⭐ Rekomendasi Berdasarkan Scored</h1>', unsafe_allow_html=True)
-    selected_title = st.selectbox("Pilih judul novel", novels['title'].unique())
+    st.title("⭐ Rekomendasi Berdasarkan Scored")
 
-    selected_row = novels[novels['title'] == selected_title].iloc[0]
+    # Input scored manual dengan slider atau number input
+    input_scored = st.number_input("Masukkan nilai scored (contoh: 4.5)", min_value=0.0, max_value=10.0, value=5.0, step=0.1, format="%.2f")
+
+    # Buat prediksi menggunakan input scored ini
+    # Karena model_scored memerlukan genre_encoded, author_encoded, status_encoded,
+    # kita perlu memberikan input default atau tanya user untuk input juga.
+    # Sebagai solusi sederhana: ambil median nilai dari dataset
+    median_genre = int(novels['genre_encoded'].median())
+    median_author = int(novels['author_encoded'].median())
+    median_status = int(novels['status_encoded'].median())
+
     X_input = pd.DataFrame({
-        'genre_encoded': [selected_row['genre_encoded']],
-        'author_encoded': [selected_row['author_encoded']],
-        'status_encoded': [selected_row['status_encoded']]
+        'genre_encoded': [median_genre],
+        'author_encoded': [median_author],
+        'status_encoded': [median_status]
     })
 
+    # Prediksi scored berdasarkan median fitur (meskipun sebenarnya model prediksi scored dari fitur, bukan dari scored langsung)
     y_pred = model_scored.predict(X_input)[0]
 
-    novels['score_diff'] = (novels['scored'] - y_pred).abs()
+    # Untuk rekomendasi kita cari novel yang scored-nya paling dekat dengan input user
+    novels['score_diff'] = (novels['scored'] - input_scored).abs()
     result = novels.sort_values(by='score_diff').head(10)
 
-    st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
+    st.write(f"Rekomendasi novel dengan scored mendekati {input_scored}:")
     st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
 
     st.session_state.history.append({
-        "title": selected_title,
+        "title": f"Scored {input_scored}",
         "type": "Scored",
         "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
     })
 
     novels.drop(columns=['score_diff'], inplace=True)
 
-# PAGE 3 - GENRE (scrollable selectbox)
+# PAGE 3 - GENRE
 elif page == "Rekomendasi Berdasarkan Genre":
-    st.markdown('<h1 class="title">🎯 Rekomendasi Berdasarkan Genre</h1>', unsafe_allow_html=True)
+    st.title("🎯 Rekomendasi Berdasarkan Genre")
 
-    input_title = st.selectbox("Pilih judul novel", novels['title'].unique(), key='genre')
+    # Input judul novel dengan input text dan scrollable selectbox sekaligus
+    # Karena user mau input sendiri, kita pakai text_input tapi kita kasih autocomplete (pakai st.text_input + list)
+    # Streamlit belum punya autocomplete native, jadi kita buat text_input saja
+    input_title = st.text_input("Masukkan judul novel (case sensitive, contoh: The Great Adventure)")
 
-    selected_row = novels[novels['title'] == input_title].iloc[0]
+    if input_title:
+        if input_title in novels['title'].values:
+            selected_row = novels[novels['title'] == input_title].iloc[0]
+            X_input = pd.DataFrame({
+                'scored': [selected_row['scored']],
+                'author_encoded': [selected_row['author_encoded']],
+                'status_encoded': [selected_row['status_encoded']]
+            })
 
-    X_input = pd.DataFrame({
-        'scored': [selected_row['scored']],
-        'author_encoded': [selected_row['author_encoded']],
-        'status_encoded': [selected_row['status_encoded']]
-    })
+            y_pred = model_genre.predict(X_input)[0]
+            genre_name = le_genre.inverse_transform([y_pred])[0]
+            result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
 
-    y_pred = model_genre.predict(X_input)[0]
-    genre_name = le_genre.inverse_transform([y_pred])[0]
+            st.write(f"Rekomendasi novel berdasarkan genre dari \"{input_title}\" (Genre: {genre_name}):")
+            st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
 
-    result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
+            st.session_state.history.append({
+                "title": input_title,
+                "type": "Genre",
+                "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
+            })
+        else:
+            st.warning("Judul novel tidak ditemukan. Mohon cek kembali penulisan.")
 
-    st.write(f"Rekomendasi novel berdasarkan genre dari \"{input_title}\" (Genre: {genre_name}):")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
-
-    st.session_state.history.append({
-        "title": input_title,
-        "type": "Genre",
-        "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
-    })
