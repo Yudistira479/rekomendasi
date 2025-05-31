@@ -9,7 +9,7 @@ st.set_page_config(page_title="Novel Recommendation App", layout="wide")
 # Load dataset
 @st.cache_data(ttl=600)
 def load_data():
-    df = pd.read_csv("novels1.csv")
+    df = pd.read_csv("novels.csv")
     return df
 
 novels = load_data()
