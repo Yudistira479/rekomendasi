@@ -47,8 +47,8 @@ if page == "Home":
     st.title("📚 Beranda")
 
     st.subheader("10 Novel Paling Populer")
-    top_popular = novels.sort_values(by="popularity", ascending=False).head(10)
-    st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularity']])
+    top_popular = novels.sort_values(by="popularty", ascending=False).head(10)
+    st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularty']])
 
     st.subheader("Riwayat Rekomendasi")
     if st.session_state.history:
@@ -77,12 +77,12 @@ elif page == "Rekomendasi Berdasarkan Scored":
     result = novels.sort_values(by='score_diff').head(10)
 
     st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\" (Prediksi: {y_pred:.2f}):")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
+    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
 
     st.session_state.history.append({
         "title": selected_title,
         "type": "Scored",
-        "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
+        "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
     })
 
     # Hapus kolom sementara agar tidak mengganggu operasi selanjutnya
@@ -105,10 +105,10 @@ elif page == "Rekomendasi Berdasarkan Genre":
     result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
 
     st.write(f"Rekomendasi novel berdasarkan genre dari \"{selected_title}\" (Genre: {genre_name}):")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
+    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
 
     st.session_state.history.append({
         "title": selected_title,
         "type": "Genre",
-        "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
+        "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]
     })
