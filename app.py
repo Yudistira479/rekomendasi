@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 # Load dataset
@@ -23,11 +22,11 @@ novels['title_encoded'] = le_title.fit_transform(novels['title'])
 novels['author_encoded'] = le_author.fit_transform(novels['authors'])
 novels['status_encoded'] = le_status.fit_transform(novels['status'])
 
-# Model untuk prediksi berdasarkan rating
-X_rating = novels[['genre_encoded', 'author_encoded', 'status_encoded']]
-y_rating = novels['scored']
-model_rating = RandomForestClassifier()
-model_rating.fit(X_rating, y_rating)
+# Model untuk prediksi berdasarkan scored
+X_scored = novels[['genre_encoded', 'author_encoded', 'status_encoded']]
+y_scored = novels['scored']
+model_scored = RandomForestClassifier()
+model_scored.fit(X_scored, y_scored)
 
 # Model untuk prediksi berdasarkan genre
 X_genre = novels[['scored', 'author_encoded', 'status_encoded']]
@@ -37,7 +36,7 @@ model_genre.fit(X_genre, y_genre)
 
 # Inisialisasi halaman
 st.set_page_config(page_title="Novel Recommendation App", layout="wide")
-page = st.sidebar.selectbox("Navigasi", ["Home", "Rekomendasi Berdasarkan Rating", "Rekomendasi Berdasarkan Genre"])
+page = st.sidebar.selectbox("Navigasi", ["Home", "Rekomendasi Berdasarkan Scored", "Rekomendasi Berdasarkan Genre"])
 
 # Riwayat rekomendasi
 if "history" not in st.session_state:
@@ -48,8 +47,8 @@ if page == "Home":
     st.title("📚 Beranda")
 
     st.subheader("10 Novel Paling Populer")
-    top_popular = novels.sort_values(by="popularty", ascending=False).head(10)
-    st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularty']])
+    top_popular = novels.sort_values(by="popularity", ascending=False).head(10)
+    st.dataframe(top_popular[['title', 'authors', 'genres', 'scored', 'popularity']])
 
     st.subheader("Riwayat Rekomendasi")
     if st.session_state.history:
@@ -59,9 +58,9 @@ if page == "Home":
     else:
         st.write("Belum ada riwayat rekomendasi.")
 
-# PAGE 2 - RATING
-elif page == "Rekomendasi Berdasarkan Rating":
-    st.title("⭐ Rekomendasi Berdasarkan Rating")
+# PAGE 2 - SCORED
+elif page == "Rekomendasi Berdasarkan Scored":
+    st.title("⭐ Rekomendasi Berdasarkan Scored")
     selected_title = st.selectbox("Pilih judul novel", novels['title'].unique())
 
     selected_row = novels[novels['title'] == selected_title].iloc[0]
@@ -71,13 +70,17 @@ elif page == "Rekomendasi Berdasarkan Rating":
         'status_encoded': [selected_row['status_encoded']]
     })
 
-    y_pred = model_rating.predict(X_input)[0]
-    result = novels[novels['scored'] == y_pred].sort_values(by='popularty', ascending=False).head(10)
+    y_pred = model_scored.predict(X_input)[0]
+    result = novels[novels['scored'] == y_pred].sort_values(by='popularity', ascending=False).head(10)
 
-    st.write(f"Rekomendasi novel berdasarkan rating dari \"{selected_title}\":")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
+    st.write(f"Rekomendasi novel berdasarkan scored dari \"{selected_title}\":")
+    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
 
-    st.session_state.history.append({"title": selected_title, "type": "Rating", "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]})
+    st.session_state.history.append({
+        "title": selected_title, 
+        "type": "Scored", 
+        "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
+    })
 
 # PAGE 3 - GENRE
 elif page == "Rekomendasi Berdasarkan Genre":
@@ -96,6 +99,10 @@ elif page == "Rekomendasi Berdasarkan Genre":
     result = novels[novels['genres'] == genre_name].sort_values(by='scored', ascending=False).head(10)
 
     st.write(f"Rekomendasi novel berdasarkan genre dari \"{selected_title}\" (Genre: {genre_name}):")
-    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularty']])
+    st.dataframe(result[['title', 'authors', 'genres', 'scored', 'popularity']])
 
-    st.session_state.history.append({"title": selected_title, "type": "Genre", "results": result[['title', 'authors', 'genres', 'scored', 'popularty']]})
+    st.session_state.history.append({
+        "title": selected_title, 
+        "type": "Genre", 
+        "results": result[['title', 'authors', 'genres', 'scored', 'popularity']]
+    })
